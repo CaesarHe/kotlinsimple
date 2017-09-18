@@ -1,16 +1,22 @@
 package com.kotiln.test.lazy
 
 class LazyValue {
-    val value : String by lazy {
+    val email : String by lazy {
         println("lazy")
-        "zhangsan"
+        "keji@gmail.com"
+    }
+
+    fun getUserName() {
+        println("userName: ${email.substringBefore("@")}")
     }
 
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
             var value = LazyValue()
-            println(value.value)
+            println(value.email)
+
+            value.getUserName()
         }
     }
 }
