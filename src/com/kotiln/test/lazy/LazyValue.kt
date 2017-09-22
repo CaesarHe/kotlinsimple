@@ -17,6 +17,7 @@ class LazyValue {
             println(value.email)
 
             value.getUserName()
+
         }
     }
 }

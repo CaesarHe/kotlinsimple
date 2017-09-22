@@ -1,38 +1,46 @@
 package com.kotiln.test.withlet
 
-data class Test(val name: String, val age: Int, val flag: Boolean = false) {
+data class Test(var name: String, var age: Int, var flag: Boolean = false) {
 }
 
 fun main(args: Array<String>) {
     val t = Test("tom", 10)
-    val (name, age, flag) = t
-    println(name)
-
+    println(t)
     println("-------with------")
-    with(t) {
-        println("$name-$age-$flag")
-        var d = name
-        println(d)
+   var n = with(t) {
+        name = "with modify"
+        "返回最后一行"
     }
+    println("with $t")
+    println("with return $n")
 
     println("-------let------")
-    t?.let {
-        println(it.name)
-        println(it.age)
-        println(it.flag)
-    }
-    println("-------let2------")
-    t.let { (name, age) ->
-        println(name)
-        println(age)
-        println(flag)
-    }
-    println("-------let3------")
-    t.let {
-        println(name)
-    }
 
-    fun Test.getResult(a:Int, b:Int) = a+b
-    var result = t.getResult(10, 2)
-    println(result)
+    var b = t.let {
+        it.name = "let modify"
+        "first line"
+        "line2"
+        "返回最后一行"
+    }
+    println("let： $t")
+    println("let return： $b")
+    println("-------apply------")
+    var c = t.apply {
+        name = "apply modify"
+        age = 100
+        "最后一行"
+    }
+    println("apply: $t")
+    println("apply return: $c")
+
+    println("-------run------")
+
+    var d = t.run {
+        name = "run modify"
+        "123"
+        "返回最后一行"
+    }
+    println("run: $t")
+    println("run return: $d")
+
 }
