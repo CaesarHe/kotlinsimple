@@ -7,7 +7,7 @@ interface ILoginListener {
     fun loginFailed(name: String)
 }
 
-class _LoginListener : ILoginListener {
+class LoginListenerImp : ILoginListener {
     private var _loginSuccess: ((name: String, token: String) -> Unit)? = null
     override fun loginSuccess(name: String, token: String) {
         _loginSuccess?.invoke(name, token)
@@ -43,10 +43,10 @@ class LoginManager {
         }
     }
 
-    fun addListener(init: (_LoginListener.() -> Unit)): LoginManager {
-        var l = _LoginListener()
-        l.init()
-        this.listener = l
+    fun addListener(init: (LoginListenerImp.() -> Unit)): LoginManager {
+        var imp = LoginListenerImp()
+        imp.init()
+        this.listener = imp
         return this
     }
 
