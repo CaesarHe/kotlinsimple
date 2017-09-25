@@ -50,14 +50,65 @@ open class DownloadListenerImp : IDownloadListener {
     }
 }
 
+class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnable {
+    var status: Int? = STATUS_WAITING
+    private var downloadThread: Thread? = null
+
+
+    companion object {
+        val STATUS_WAITING = 0
+        val STATUS_RUNNING = 1
+        val STATUS_PAUSE = 2
+        val STATUS_FAILED = 3
+        val STATUS_COMPLETE = 4
+    }
+
+    override fun run() {
+        status = STATUS_RUNNING
+        listener?.newTask(url)
+        var index = 0
+        while (index++ < 10) {
+            if (status == STATUS_RUNNING) {
+                try {
+                    Thread.sleep(1000)
+                    listener?.progress(url, index * 10)
+                } catch (e: Exception) {
+                    println("${Thread.currentThread().name} ${e.message}")
+                    return
+                }
+            } else {
+                return
+            }
+        }
+        status = STATUS_COMPLETE
+        listener?.complete(url)
+    }
+
+    fun start() {
+        downloadThread = Thread(this)
+        downloadThread?.start()
+    }
+
+    fun pause() {
+        status = STATUS_PAUSE
+        downloadThread?.let {
+            if (it.isAlive) it.interrupt()
+        }
+        println("$url paused")
+    }
+
+    fun resume() {
+        status = STATUS_WAITING
+        println("$url resume")
+    }
+}
+
+
 class DownloadManager {
     private var listener: DownloadListenerImp? = null
     private val taskList: LinkedList<DownloadTask> by lazy {
         LinkedList<DownloadTask>()
     }
-
-    private var isRunning: Boolean = false
-    private var downloadThread: Thread? = null
 
     private constructor()
 
@@ -79,19 +130,6 @@ class DownloadManager {
         return this
     }
 
-    class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnable {
-
-        override fun run() {
-            listener?.newTask(url)
-            var index = 0
-            while (index++ < 10) {
-                Thread.sleep(1000)
-                listener?.progress(url, index * 10)
-            }
-            listener?.complete(url)
-        }
-
-    }
 
     @Synchronized
     fun addTask(url: String): DownloadManager {
@@ -103,29 +141,18 @@ class DownloadManager {
 
             override fun newTask(url: String) {
                 super.newTask(url)
-                isRunning = true
                 listener?.newTask(url)
             }
 
             override fun failed(url: String) {
                 super.failed(url)
-                isRunning = false
                 listener?.failed(url)
             }
 
-            override fun complete(mUrl: String) {
+            override fun complete(url: String) {
                 super.complete(url)
-                isRunning = false
-                var currentTask = taskList.filter {
-                    with(it) {
-                        url.equals(mUrl)
-                    }
-                }.getOrNull(0)
-                currentTask?.let {
-                    taskList.remove(currentTask)
-                }
-
-                listener?.complete(mUrl)
+                removeTask(url)
+                listener?.complete(url)
                 schedule()
             }
         }))
@@ -133,12 +160,23 @@ class DownloadManager {
     }
 
     @Synchronized
+    private fun removeTask(url: String) {
+        var currentTask = taskList.filter {
+            it.url.equals(url)
+        }.getOrNull(0)
+        currentTask?.let {
+            taskList.remove(currentTask)
+        }
+    }
+
+    @Synchronized
     private fun schedule() {
-        if (!isRunning) {
-            var runnable = taskList.getOrNull(0)
-            runnable?.let {
-                downloadThread = Thread(runnable)
-                downloadThread!!.start()
+        var t = taskList.filter { it.status == DownloadTask.STATUS_RUNNING }
+        if (t.isNotEmpty()) {
+            //if current has task is running then do nothing
+        } else {
+            taskList.filter { it.status == DownloadTask.STATUS_WAITING }?.getOrNull(0)?.let {
+                it.start()
             }
         }
     }
@@ -146,18 +184,38 @@ class DownloadManager {
     fun start() {
         schedule()
     }
+
+
+    fun pause(url: String) {
+        taskList.filter { it.url.equals(url) }.forEach {
+            it.pause()
+        }
+        schedule()
+    }
+
+    fun resume(url: String) {
+        taskList.filter { it.url.equals(url) }.forEach {
+            it.resume()
+        }
+        schedule()
+    }
 }
 
 fun main(args: Array<String>) {
     DownloadManager.getInstance().registerListener {
         onNewTask { url ->
-            println("new task: $url")
+            println("${Thread.currentThread().name} new task: $url")
         }
         onProgress { url, progress ->
-            println("progress:$progress")
+            println("${Thread.currentThread().name} progress:$progress")
         }
         onComplete { url ->
-            println("complete!")
+            println("${Thread.currentThread().name} complete!")
         }
     }.addTask("http://www.google.com/download.zip").addTask("http://www.baidu.com/download.zip").start()
+
+    Thread.sleep(2000)
+    DownloadManager.getInstance().pause("http://www.google.com/download.zip")
+    Thread.sleep(2000)
+    DownloadManager.getInstance().resume("http://www.google.com/download.zip")
 }
