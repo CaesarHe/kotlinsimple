@@ -1,7 +1,7 @@
 package com.kotiln.test.manager
 
 class RegisterManager {
-
+    private constructor()
     companion object {
         private var instance: RegisterManager? = null
 

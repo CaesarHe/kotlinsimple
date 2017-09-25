@@ -31,6 +31,7 @@ class _LoginListener : ILoginListener {
 class LoginManager {
     private var listener: ILoginListener? = null
 
+    private constructor()
     companion object {
         private var instance: LoginManager? = null
         @Synchronized
