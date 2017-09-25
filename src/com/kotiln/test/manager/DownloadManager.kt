@@ -52,6 +52,18 @@ open class DownloadListenerImp : IDownloadListener {
 
 class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnable {
     var status: Int? = STATUS_WAITING
+        set(value) {
+            when (value) {
+                DownloadTask.STATUS_PAUSE -> {
+                    downloadThread?.let {
+                        if (it.isAlive) it.interrupt()
+                    }
+                    println("$url paused")
+                }
+                STATUS_WAITING -> println("$url resume")
+            }
+            field = value
+        }
     private var downloadThread: Thread? = null
 
 
@@ -91,15 +103,10 @@ class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnab
 
     fun pause() {
         status = STATUS_PAUSE
-        downloadThread?.let {
-            if (it.isAlive) it.interrupt()
-        }
-        println("$url paused")
     }
 
     fun resume() {
         status = STATUS_WAITING
-        println("$url resume")
     }
 }
 
@@ -133,29 +140,31 @@ class DownloadManager {
 
     @Synchronized
     fun addTask(url: String): DownloadManager {
-        taskList.add(DownloadTask(url, object : DownloadListenerImp() {
-            override fun progress(url: String, progress: Int) {
-                super.progress(url, progress)
-                listener?.progress(url, progress)
-            }
+        if (taskList.none { it.url.equals(url) }) {
+            taskList.add(DownloadTask(url, object : DownloadListenerImp() {
+                override fun progress(url: String, progress: Int) {
+                    super.progress(url, progress)
+                    listener?.progress(url, progress)
+                }
 
-            override fun newTask(url: String) {
-                super.newTask(url)
-                listener?.newTask(url)
-            }
+                override fun newTask(url: String) {
+                    super.newTask(url)
+                    listener?.newTask(url)
+                }
 
-            override fun failed(url: String) {
-                super.failed(url)
-                listener?.failed(url)
-            }
+                override fun failed(url: String) {
+                    super.failed(url)
+                    listener?.failed(url)
+                }
 
-            override fun complete(url: String) {
-                super.complete(url)
-                removeTask(url)
-                listener?.complete(url)
-                schedule()
-            }
-        }))
+                override fun complete(url: String) {
+                    super.complete(url)
+                    removeTask(url)
+                    listener?.complete(url)
+                    schedule()
+                }
+            }))
+        }
         return this
     }
 
@@ -171,11 +180,13 @@ class DownloadManager {
 
     @Synchronized
     private fun schedule() {
-        var t = taskList.filter { it.status == DownloadTask.STATUS_RUNNING }
-        if (t.isNotEmpty()) {
+        var t = taskList.firstOrNull { it.status == DownloadTask.STATUS_RUNNING }
+        if (t != null) {
             //if current has task is running then do nothing
         } else {
-            taskList.filter { it.status == DownloadTask.STATUS_WAITING }?.getOrNull(0)?.let {
+            taskList.firstOrNull {
+                it.status == DownloadTask.STATUS_WAITING
+            }?.let {
                 it.start()
             }
         }
@@ -184,7 +195,6 @@ class DownloadManager {
     fun start() {
         schedule()
     }
-
 
     fun pause(url: String) {
         taskList.filter { it.url.equals(url) }.forEach {
