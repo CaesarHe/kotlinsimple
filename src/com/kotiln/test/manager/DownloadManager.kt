@@ -10,22 +10,22 @@ object Log {
 
 interface IDownloadListener {
     fun progress(url: String, progress: Int)
-    fun newTask(url: String)
+    fun startTask(url: String)
     fun complete(url: String)
     fun failed(url: String)
 }
 
 open class DownloadListenerImp : IDownloadListener {
     private var _progress: ((url: String, progress: Int) -> Unit)? = null
-    private var _newTask: ((url: String) -> Unit)? = null
+    private var _startTask: ((url: String) -> Unit)? = null
     private var _complete: ((url: String) -> Unit)? = null
     private var _failed: ((url: String) -> Unit)? = null
     override fun progress(url: String, progress: Int) {
         _progress?.invoke(url, progress)
     }
 
-    override fun newTask(url: String) {
-        _newTask?.invoke(url)
+    override fun startTask(url: String) {
+        _startTask?.invoke(url)
     }
 
     override fun complete(url: String) {
@@ -43,8 +43,8 @@ open class DownloadListenerImp : IDownloadListener {
         _progress = block
     }
 
-    fun onNewTask(block: (url: String) -> Unit) {
-        _newTask = block
+    fun onStartTask(block: (url: String) -> Unit) {
+        _startTask = block
     }
 
     fun onComplete(block: (url: String) -> Unit) {
@@ -85,7 +85,7 @@ class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnab
 
     override fun run() {
         status = STATUS_RUNNING
-        listener?.newTask(url)
+        listener?.startTask(url)
         var index = 0
         while (index++ < 10) {
             if (status == STATUS_RUNNING) {
@@ -156,9 +156,9 @@ class DownloadManager private constructor() {
                     listener?.progress(url, progress)
                 }
 
-                override fun newTask(url: String) {
-                    super.newTask(url)
-                    listener?.newTask(url)
+                override fun startTask(url: String) {
+                    super.startTask(url)
+                    listener?.startTask(url)
                 }
 
                 override fun failed(url: String) {
@@ -229,8 +229,8 @@ class DownloadManager private constructor() {
 
 fun main(args: Array<String>) {
     DownloadManager.getInstance().registerListener {
-        onNewTask { url ->
-            Log.d("new task: $url")
+        onStartTask { url ->
+            Log.d("start task: $url")
         }
         onProgress { url, progress ->
             Log.d(" progress:$progress")
