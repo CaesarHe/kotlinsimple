@@ -1,6 +1,10 @@
 package com.kotiln.test.manager
 
+import java.io.File
+import java.net.URL
 import java.util.*
+import java.util.regex.Pattern
+
 
 object Log {
     fun d(msg: String) {
@@ -72,6 +76,8 @@ class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnab
             field = value
         }
     private var downloadThread: Thread? = null
+    private var currentSize: Long? = 0
+    private var totalSize: Long? = 0
 
 
     companion object {
@@ -83,23 +89,58 @@ class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnab
         val STATUS_STOP = 5
     }
 
+    private fun readFromNet() {
+        var fileName = getFileName()
+        fileName?.length ?: throw DownloadException("fileName is empty")
+        var engine = URL(url)
+        var file = File(System.getProperty("user.dir") + File.separator + "out", fileName)
+        if (!file.parentFile.exists()) {
+            file.parentFile.createNewFile()
+        }
+        if (file.exists()) file.delete()
+        totalSize = engine.openConnection().contentLengthLong
+
+        var byteread: Int = -1
+        var buffer = ByteArray(1024 * 8)
+        engine.openStream().use {
+            do {
+                byteread = it.read(buffer)
+                if (byteread != -1) {
+                    currentSize = currentSize!!.plus(byteread)
+                    file.outputStream().use { it.write(buffer, 0, byteread) }
+                    var progress = Integer.parseInt((currentSize!! * 100 / totalSize!!).toString())
+                    listener?.progress(url, progress)
+                }
+            } while (byteread != -1)
+        }
+    }
+
+    private class DownloadException(override val message: String) : Throwable() {
+
+    }
+
+    private fun getFileName(): String? {
+        val pattern = Pattern.compile("[^/\\\\]+$")
+        val matcher = pattern.matcher(url)
+        var fileName: String? = null
+        if (matcher.find()) {
+            fileName = matcher.group()
+        }
+        return fileName
+    }
+
     override fun run() {
         status = STATUS_RUNNING
         listener?.startTask(url)
-        var index = 0
-        while (index++ < 10) {
-            if (status == STATUS_RUNNING) {
-                try {
-                    Thread.sleep(1000)
-                    listener?.progress(url, index * 10)
-                } catch (e: Exception) {
-                    Log.d("${e.message}")
-                    return
-                }
-            } else {
-                return
-            }
+
+        try {
+            readFromNet()
+        } catch (e: Exception) {
+            Log.d("download error: $e")
+            listener?.failed(url)
+            return
         }
+
         status = STATUS_COMPLETE
         listener?.complete(url)
     }
@@ -238,12 +279,12 @@ fun main(args: Array<String>) {
         onComplete { url ->
             Log.d(" complete!")
         }
-    }.addTask("http://www.google.com/download.zip").addTask("http://www.baidu.com/download.zip").start()
+    }.addTask("http://ucdl.25pp.com/fs01/union_pack/Wandoujia_180581_web_seo_baidu_homepage.apk").start()
 
-    Thread.sleep(2000)
-    DownloadManager.getInstance().pause("http://www.google.com/download.zip")
-    Thread.sleep(2000)
-    DownloadManager.getInstance().resume("http://www.google.com/download.zip")
-    Thread.sleep(2000)
-    DownloadManager.getInstance().stop("http://www.google.com/download.zip")
+//    Thread.sleep(2000)
+//    DownloadManager.getInstance().pause("http://www.google.com/download.zip")
+//    Thread.sleep(2000)
+//    DownloadManager.getInstance().resume("http://www.google.com/download.zip")
+//    Thread.sleep(2000)
+//    DownloadManager.getInstance().stop("http://www.google.com/download.zip")
 }
