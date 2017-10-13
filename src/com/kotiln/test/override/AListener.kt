@@ -1,4 +1,4 @@
-package com.kotiln.test.overload
+package com.kotiln.test.override
 
 interface AListener {
     fun method1() {

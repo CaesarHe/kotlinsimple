@@ -137,7 +137,9 @@ class DownloadTask(var url: String, var listener: DownloadListenerImp?) : Runnab
             readFromNet()
         } catch (e: Exception) {
             Log.d("download error: $e")
-            listener?.failed(url)
+            if (status == STATUS_RUNNING) {
+                listener?.failed(url)
+            }
             return
         }
 
